@@ -1,0 +1,58 @@
+<div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h2 class="card-title h4 mb-0">Rubric Feedback</h2>
+        </div>
+        <div class="card-body">
+          <!-- Progress Bar -->
+          <div class="progress mb-3" style="height: 25px;">
+            <div class="progress-bar" role="progressbar" 
+                 style="width: {{ (current / total) * 100 }}%;" 
+                 aria-valuenow="{{ current }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="{{ total }}">
+              Step {{ current }} of {{ total }}
+            </div>
+          </div>
+          
+          <!-- Feedback Step -->
+          <div id="feedbackStepContainer">
+            {% include 'feedback_step.html' %}
+          </div>
+          
+          <!-- Navigation Buttons -->
+          <div class="d-flex justify-content-between mt-4">
+            <button class="btn btn-outline-secondary"
+                    {% if current == 1 %}disabled{% endif %}
+                    hx-post="/feedback/step"
+                    hx-vals='{"direction": "previous"}'
+                    hx-target="#feedbackStepContainer"
+                    hx-swap="innerHTML">
+              Previous
+            </button>
+            
+            <span class="align-self-center">
+              Step {{ current }} of {{ total }}
+            </span>
+            
+            <button class="btn btn-primary"
+                    {% if current == total %}disabled{% endif %}
+                    hx-post="/feedback/step"
+                    hx-vals='{"direction": "next"}'
+                    hx-target="#feedbackStepContainer"
+                    hx-swap="innerHTML">
+              Next
+            </button>
+          </div>
+  
+          <!-- Return to upload (shown only on last step) -->
+          {% if current == total %}
+          <div class="text-center mt-3">
+            <a href="/" class="btn btn-success">Start New Feedback</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
