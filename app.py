@@ -59,7 +59,7 @@ def upload():
     
     # Prepare the payload for OpenAI API
     payload = {
-        "model": "gpt-4-vision-preview",  # Or another appropriate model
+        "model": "gpt-4o",
         "messages": [
             {
                 "role": "user",
@@ -144,11 +144,11 @@ def feedback_step():
     # Update the session
     session['current_step'] = new_index
     
-    # Return the requested step
-    return render_template('feedback_step.html', 
-                          step=steps[new_index], 
-                          current=new_index + 1, 
-                          total=len(steps))
+    # Return the full feedback template
+    return render_template('feedback.html', 
+                         step=steps[new_index], 
+                         current=new_index + 1, 
+                         total=len(steps))
 
 if __name__ == '__main__':
     app.run(debug=True)
