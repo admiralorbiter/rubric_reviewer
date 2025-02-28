@@ -123,21 +123,27 @@ def upload():
         # Add final instruction
         user_content.append({
             "type": "text",
-            "text": """
-            Please evaluate the student work against each criterion in the rubric. 
-            Format your response as JSON with the following structure:
-            {
-              "feedback_steps": [
+              "text": """
+                You are an experienced educator reviewing a student's work using the provided rubric. The rubric may be organized into multiple major sections and subsections or specific criteria. Please evaluate the work against every criterion and section included in the rubric. For each section or criterion, provide detailed feedback that includes what was done well, one or two actionable suggestions for improvement, and any relevant scoring details if applicable.
+
+                Format your response as JSON using the following structure:
                 {
-                  "title": "Section title or criterion name",
-                  "feedback": "Detailed feedback for this section"
-                },
-                // More sections...
-              ]
-            }
-            
-            Be thorough and constructive in your feedback.
-            """
+                    "feedback_steps": [
+                        {
+                            "title": "Section or Criterion Title",
+                            "feedback": "Detailed feedback covering strengths and specific suggestions for improvement."
+                        }
+                        // More sections...
+                    ]
+                }
+
+                Guidelines:
+                - Use simple, clear language suitable for an 8th-grade audience.
+                - For each section or criterion, identify strengths and provide actionable, constructive recommendations.
+                - Ensure that every major section and all subsections or individual criteria in the rubric are covered.
+                - Be thorough, specific, and encouraging in your feedback.
+                - If the rubric includes a scoring component, include it in your feedback.
+                """
         })
         
         # Prepare the payload for OpenAI API
