@@ -3,6 +3,10 @@ import requests
 import base64
 import os
 import json
+import io
+import PyPDF2
+import fitz  # PyMuPDF
+from PIL import Image
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -19,70 +23,141 @@ OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 def index():
     return render_template('index.html')
 
+def extract_text_from_pdf(pdf_file):
+    """Extract text from a PDF file."""
+    text = ""
+    pdf_reader = PyPDF2.PdfReader(pdf_file)
+    for page in pdf_reader.pages:
+        text += page.extract_text() + "\n"
+    return text
+
+def pdf_to_images(pdf_file):
+    """Convert PDF pages to base64-encoded images."""
+    images = []
+    pdf_document = fitz.open(stream=pdf_file.read(), filetype="pdf")
+    
+    for page_number in range(pdf_document.page_count):
+        page = pdf_document.load_page(page_number)
+        pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72))
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        
+        # Convert to base64
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        encoded_img = base64.b64encode(img_byte_arr).decode('ascii')
+        
+        images.append(encoded_img)
+    
+    return images
+
 @app.route('/upload', methods=['POST'])
 def upload():
-    # Get uploaded image and rubric text
-    image_file = request.files.get('image')
-    rubric_text = request.form.get('rubric')
+    # Get uploaded PDF files
+    rubric_file = request.files.get('rubric_pdf')
+    work_file = request.files.get('work_pdf')
 
-    if not rubric_text or not image_file:
-        return jsonify({"error": "Rubric text or image is missing"}), 400
+    if not rubric_file or not work_file:
+        return jsonify({"error": "Both rubric and student work PDFs are required"}), 400
 
-    # Check if file is an allowed image type
-    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-    if '.' not in image_file.filename or \
-       image_file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
-        return jsonify({"error": "Invalid image format. Please upload PNG, JPG, JPEG, or GIF."}), 400
+    # Check if files are PDFs
+    if not rubric_file.filename.lower().endswith('.pdf') or not work_file.filename.lower().endswith('.pdf'):
+        return jsonify({"error": "Both files must be in PDF format"}), 400
 
-    # Convert image to base64
-    image_data = base64.b64encode(image_file.read()).decode('utf-8')
-    
-    # Create prompt for OpenAI API
-    prompt = f"""
-    Analyze the following image according to this rubric:
-    
-    {rubric_text}
-    
-    Provide detailed feedback for each section of the rubric. Format your response as JSON with the following structure:
-    {{
-      "feedback_steps": [
-        {{
-          "title": "Section title or criterion name",
-          "feedback": "Detailed feedback for this section"
-        }},
-        // More sections...
-      ]
-    }}
-    
-    Be thorough and constructive in your feedback.
-    """
-    
-    # Prepare the payload for OpenAI API
-    payload = {
-        "model": "gpt-4o",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_data}"
-                        }
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 1500
-    }
-
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
     try:
+        # Method 1: Extract text from PDFs
+        rubric_text = extract_text_from_pdf(rubric_file)
+        
+        # Reset file pointer for image conversion
+        rubric_file.seek(0)
+        work_file.seek(0)
+        
+        # Method 2: Convert PDFs to images for visual analysis
+        rubric_images = pdf_to_images(rubric_file)
+        work_images = pdf_to_images(work_file)
+        
+        # Prepare content for the API
+        content = []
+        
+        # Add system message
+        system_message = {
+            "role": "system",
+            "content": "You are an expert educator specializing in assessment. Evaluate student work against provided rubrics with detailed, constructive feedback."
+        }
+        
+        # Prepare user content with images
+        user_content = []
+        
+        # Add text instruction
+        user_content.append({
+            "type": "text",
+            "text": f"I need to evaluate student work based on a rubric. The rubric text is as follows:\n\n{rubric_text}\n\nBelow are images of both the rubric and student work for visual reference. Please evaluate the student work against each criterion in the rubric. Provide specific feedback on strengths and areas for improvement for each criterion."
+        })
+        
+        # Add rubric images
+        for idx, img in enumerate(rubric_images):
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{img}",
+                    "detail": "high"
+                }
+            })
+        
+        # Add separator
+        user_content.append({
+            "type": "text", 
+            "text": "Above are images of the rubric. Below are images of the student work:"
+        })
+        
+        # Add work images
+        for img in work_images:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{img}",
+                    "detail": "high"
+                }
+            })
+        
+        # Add final instruction
+        user_content.append({
+            "type": "text",
+            "text": """
+            Please evaluate the student work against each criterion in the rubric. 
+            Format your response as JSON with the following structure:
+            {
+              "feedback_steps": [
+                {
+                  "title": "Section title or criterion name",
+                  "feedback": "Detailed feedback for this section"
+                },
+                // More sections...
+              ]
+            }
+            
+            Be thorough and constructive in your feedback.
+            """
+        })
+        
+        # Prepare the payload for OpenAI API
+        payload = {
+            "model": "gpt-4o",
+            "messages": [
+                system_message,
+                {
+                    "role": "user",
+                    "content": user_content
+                }
+            ],
+            "max_tokens": 1500
+        }
+
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
         # Make the API call
         response = requests.post(OPENAI_API_URL, json=payload, headers=headers)
         
@@ -120,8 +195,8 @@ def upload():
             return jsonify({"error": "Failed to parse feedback from API"}), 500
     
     except Exception as e:
-        app.logger.error(f"Error calling OpenAI API: {str(e)}")
-        return jsonify({"error": "An error occurred while processing your request"}), 500
+        app.logger.error(f"Error processing PDFs or calling OpenAI API: {str(e)}")
+        return jsonify({"error": f"An error occurred while processing your request: {str(e)}"}), 500
 
 @app.route('/feedback/step', methods=['POST'])
 def feedback_step():

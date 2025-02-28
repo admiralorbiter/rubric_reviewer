@@ -24,7 +24,7 @@
       <div class="col-md-8">
         <div class="card shadow">
           <div class="card-header bg-light">
-            <h2 class="card-title h4 mb-0">Upload Rubric & Image</h2>
+            <h2 class="card-title h4 mb-0">Upload Rubric & Student Work</h2>
           </div>
           <div class="card-body">
             <form id="uploadForm"
@@ -37,15 +37,15 @@
                   hx-swap="innerHTML">
               
               <div class="mb-3">
-                <label for="rubric" class="form-label">Paste Your Rubric:</label>
-                <textarea class="form-control" id="rubric" name="rubric" rows="6" required
-                          placeholder="Paste your rubric text here. Include all sections and criteria."></textarea>
+                <label for="rubric_pdf" class="form-label">Upload Rubric PDF:</label>
+                <input type="file" class="form-control" id="rubric_pdf" name="rubric_pdf" accept="application/pdf" required>
+                <div class="form-text">Please upload the rubric as a PDF file</div>
               </div>
               
               <div class="mb-3">
-                <label for="image" class="form-label">Upload an Image:</label>
-                <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
-                <div class="form-text">Supported formats: PNG, JPG, JPEG, GIF</div>
+                <label for="work_pdf" class="form-label">Upload Student Work PDF:</label>
+                <input type="file" class="form-control" id="work_pdf" name="work_pdf" accept="application/pdf" required>
+                <div class="form-text">Please upload the student work as a PDF file</div>
               </div>
               
               <div class="d-grid">
@@ -65,7 +65,7 @@
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Analyzing your image with the provided rubric...</p>
+            <p class="mt-2">Analyzing the student work with the provided rubric...</p>
             <p class="small text-muted">This may take a few moments.</p>
           </div>
         </div>
